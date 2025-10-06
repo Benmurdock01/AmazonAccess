@@ -1,0 +1,34 @@
+---
+title: "AmazonAcess"
+format: html
+---
+
+```{r}
+#libaries
+library(tidymodels)
+library(embed)
+library(vroom)
+```
+
+```{r}
+#data import
+trainData <- vroom::vroom("train.csv")
+
+testData <- vroom::vroom("test.csv")
+
+```
+
+```{r}
+#recipe
+my_recipe <- recipe(ACTION ~ ., data = trainData) %>%
+  step_mutate_at(all_numeric_predictors(), fn = as.factor) %>% 
+  step_other(all_numeric_predictors(), threshold = 0.001) %>%
+  step_lencode_mixed(all_numeric_predictors(), outcome = vars(ACTION))
+
+prep <- prep(my_recipe)
+trainbaked <- bake(prep, new_data = trainData)
+testbaked <- bake(prep, new_data = testData)
+
+dim(trainbaked)
+```
+
