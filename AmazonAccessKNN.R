@@ -19,44 +19,31 @@ amazon_recipe <- recipe(ACTION ~ ., data = trainData) %>%
   step_mutate_at(all_predictors(), fn = factor) %>%
   step_other(all_nominal_predictors(), threshold = 0.05) %>%
   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>%
-  step_zv(all_predictors())
+  step_zv(all_predictors()) %>% 
+  step_normalize(all_predictors())
 
-#prep the recipe
-prepped_recipe <- prep(amazon_recipe)
-final_predictor_count <- ncol(bake(prepped_recipe, new_data = NULL)) - 1
-
-#model
-amazon_model <- rand_forest(
-  mtry = tune(),
-  min_n = tune(),
-  trees = 1000 # 1000 trees is a good, robust number
-) %>% 
-  set_engine('ranger', importance = "permutation", num.threads = num_cores) %>% 
-  set_mode('classification')
-
+amazon_model <- nearest_neighbor(neighbors = tune()) %>% 
+  set_mode('classification') %>% 
+  set_engine('kknn')
 
 #workflow
 amazon_workflow <- workflow() %>%
   add_recipe(amazon_recipe) %>%
   add_model(amazon_model)
 
-#number of cv splits
-folds <- vfold_cv(trainData, v = 10, repeats = 1, strata = ACTION)
-
 #tuning
-latin_hypercube_grid <- grid_latin_hypercube(
-  mtry(range = c(1L, final_predictor_count)), 
-  min_n(range = c(2L, 40L)), 
-  size = 30
-)
+tuning_grid <- tibble(neighbors = seq(1, 30, by = 2))
+
+
+#number of cv splits
+folds <- vfold_cv(trainData, v = 10, repeats = 1)
 
 #run cv
 cv_results <- amazon_workflow %>%
   tune_grid(
     resamples = folds,
-    grid = latin_hypercube_grid,
-    metrics = metric_set(roc_auc),
-    control = control_grid(verbose = TRUE) # Show progress
+    grid = tuning_grid,
+    metrics = metric_set(roc_auc)
   )
 
 #find best tuning params
@@ -82,6 +69,6 @@ stopCluster(cl)
 
 #Server Commands (MAKE SURE TO BE IN RIGHT FILE)
 # ssh bjm259@stat-u02.byu.edu
-# R CMD BATCH --no-save --no-restore AmazonAccess.R & 
+# R CMD BATCH --no-save --no-restore AmazonAccessKNN.R & 
 # top <- to see if it is running
-# less AmazonAccess.Rout <- to see the Rout file
+# less AmazonAccessKNN.Rout <- to see the Rout file
