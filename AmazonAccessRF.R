@@ -16,10 +16,11 @@ testData <- vroom::vroom("./test.csv")
 
 #recipe
 amazon_recipe <- recipe(ACTION ~ ., data = trainData) %>%
-  step_mutate_at(all_predictors(), fn = factor) %>%
+  step_mutate_at(all_numeric_predictors(), fn = factor) %>%
   step_other(all_nominal_predictors(), threshold = 0.05) %>%
   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>%
-  step_zv(all_predictors())
+  step_zv(all_predictors()) %>% 
+  step_normalize(all_predictors())
 
 #prep the recipe
 prepped_recipe <- prep(amazon_recipe)
@@ -29,7 +30,7 @@ final_predictor_count <- ncol(bake(prepped_recipe, new_data = NULL)) - 1
 amazon_model <- rand_forest(
   mtry = tune(),
   min_n = tune(),
-  trees = 1000 # 1000 trees is a good, robust number
+  trees = 1000 
 ) %>% 
   set_engine('ranger', importance = "permutation", num.threads = num_cores) %>% 
   set_mode('classification')
@@ -76,7 +77,7 @@ submission_predictions <- final_wf %>%
   select(id, ACTION)
 
 #saving output
-vroom::vroom_write(submission_predictions, "submission.csv", delim = ",")
+vroom::vroom_write(submission_predictions, "submissionRF.csv", delim = ",")
 
 stopCluster(cl)
 
