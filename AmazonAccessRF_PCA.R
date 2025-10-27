@@ -20,7 +20,8 @@ amazon_recipe <- recipe(ACTION ~ ., data = trainData) %>%
   step_other(all_nominal_predictors(), threshold = 0.05) %>%
   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>%
   step_zv(all_predictors()) %>% 
-  step_normalize(all_predictors())
+  step_normalize(all_predictors()) %>% 
+  step_pca(all_predictors(), threshold = .9)
 
 #prep the recipe
 prepped_recipe <- prep(amazon_recipe)
@@ -57,7 +58,7 @@ cv_results <- amazon_workflow %>%
     resamples = folds,
     grid = latin_hypercube_grid,
     metrics = metric_set(roc_auc),
-    control = control_grid(verbose = TRUE) # Show progress
+    control = control_grid(verbose = TRUE) 
   )
 
 #find best tuning params
@@ -83,6 +84,6 @@ stopCluster(cl)
 
 #Server Commands (MAKE SURE TO BE IN RIGHT FILE)
 # ssh bjm259@stat-u02.byu.edu
-# R CMD BATCH --no-save --no-restore AmazonAccess.R & 
+# R CMD BATCH --no-save --no-restore AmazonAccessRF_PCA.R & 
 # top <- to see if it is running
 # less AmazonAccess.Rout <- to see the Rout file

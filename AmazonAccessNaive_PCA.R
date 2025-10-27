@@ -6,7 +6,7 @@ library(doParallel)
 library(discrim)
 
 #setting up parallels
-num_cores <- 6
+num_cores <- 2
 cl <- makePSOCKcluster(num_cores)
 registerDoParallel(cl)
 
@@ -20,7 +20,10 @@ amazon_recipe <- recipe(ACTION ~ ., data = trainData) %>%
   step_mutate(across(all_predictors(), as.factor)) %>%
   step_other(all_nominal_predictors(), threshold = 0.05) %>%
   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>%
-  step_zv(all_predictors())
+  step_zv(all_predictors()) %>% 
+  step_normalize(all_predictors()) %>% 
+  step_pca(all_predictors(), threshold = .9)
+
 
 #model
 amazon_model <- naive_Bayes(Laplace = tune(), smoothness = tune()) %>% 
@@ -67,12 +70,12 @@ submission_predictions <- final_wf %>%
   select(id, ACTION)
 
 #saving output
-vroom::vroom_write(submission_predictions, "submissionNavie.csv", delim = ",")
+vroom::vroom_write(submission_predictions, "submissionNavie_PCA.csv", delim = ",")
 
 stopCluster(cl)
 
 #Server Commands (MAKE SURE TO BE IN RIGHT FILE)
 # ssh bjm259@stat-u02.byu.edu
-# R CMD BATCH --no-save --no-restore AmazonAccess.R & 
+# R CMD BATCH --no-save --no-restore AmazonAccessNaive_PCA.R & 
 # top <- to see if it is running
 # less AmazonAccess.Rout <- to see the Rout file
