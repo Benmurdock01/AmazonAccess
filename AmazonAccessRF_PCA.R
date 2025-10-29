@@ -16,26 +16,21 @@ testData <- vroom::vroom("./test.csv")
 
 #recipe
 amazon_recipe <- recipe(ACTION ~ ., data = trainData) %>%
-  step_mutate_at(all_numeric_predictors(), fn = factor) %>%
-  step_other(all_nominal_predictors(), threshold = 0.05) %>%
-  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>%
-  step_zv(all_predictors()) %>% 
-  step_normalize(all_predictors()) %>% 
+  step_mutate_at(all_predictors(), fn = factor) %>%
+  step_zv(all_predictors()) %>%
+  step_other(all_nominal_predictors(), threshold = 0.001) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
   step_pca(all_predictors(), threshold = .9)
-
-#prep the recipe
-prepped_recipe <- prep(amazon_recipe)
-final_predictor_count <- ncol(bake(prepped_recipe, new_data = NULL)) - 1
 
 #model
 amazon_model <- rand_forest(
-  mtry = tune(),
+  mtry  = tune(),
   min_n = tune(),
-  trees = 1000 
-) %>% 
-  set_engine('ranger', importance = "permutation", num.threads = num_cores) %>% 
-  set_mode('classification')
-
+  trees = 100
+) %>%
+  set_engine("ranger") %>%
+  set_mode("classification")
 
 #workflow
 amazon_workflow <- workflow() %>%
@@ -46,19 +41,18 @@ amazon_workflow <- workflow() %>%
 folds <- vfold_cv(trainData, v = 10, repeats = 1, strata = ACTION)
 
 #tuning
-latin_hypercube_grid <- grid_latin_hypercube(
-  mtry(range = c(1L, final_predictor_count)), 
-  min_n(range = c(2L, 40L)), 
-  size = 30
+tuning_grid <- grid_regular(
+  mtry(range = c(10, 60)),
+  min_n(range = c(2, 10)),
+  levels = 3
 )
 
 #run cv
 cv_results <- amazon_workflow %>%
   tune_grid(
     resamples = folds,
-    grid = latin_hypercube_grid,
-    metrics = metric_set(roc_auc),
-    control = control_grid(verbose = TRUE) 
+    grid = tuning_grid,
+    metrics = metric_set(roc_auc, accuracy)
   )
 
 #find best tuning params
